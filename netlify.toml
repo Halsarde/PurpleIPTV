@@ -12,4 +12,4 @@
 [[headers]]
   for = "/*"
   [headers.values]
-  Content-Security-Policy = "default-src 'self' https://cdn.tailwindcss.com; img-src 'self' data: blob:; media-src * data: blob:; connect-src *; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'
+  Content-Security-Policy = "default-src 'self' https://cdn.tailwindcss.com; img-src 'self' data: blob:; media-src * data: blob:; connect-src *; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
