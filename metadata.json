@@ -1,0 +1,5 @@
+{
+  "name": "Purple TV",
+  "description": "A modern, sleek IPTV web application with a purple-themed UI. It supports Xtream Codes and M3U playlists and is enhanced with AI-powered content discovery.",
+  "requestFramePermissions": []
+}
