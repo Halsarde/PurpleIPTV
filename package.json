@@ -15,7 +15,8 @@
   "dependencies": {
     "hls.js": "^1.6.13",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "shaka-player": "^4.16.7"
   },
   "devDependencies": {
     "@capacitor/android": "^6.1.1",
@@ -26,6 +27,6 @@
     "@vitejs/plugin-react": "^4.3.1",
     "rollup": "^4.13.0",
     "typescript": "^5.5.3",
-    "vite": "^5.3.3"
+    "vite": "^7.1.12"
   }
 }

@@ -1,279 +1,304 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import Hls from 'hls.js';
-import { PlayerArgs, Screen, Stream, Episode } from '../types';
-import { useAppContext } from '../context/AppContext';
-import * as xtreamService from '../services/xtreamService';
-import { LoadingSpinner } from '../components/LoadingSpinner';
+import React, { useEffect, useRef, useState } from "react";
+import { useAppContext } from "../context/AppContext";
+import { Stream } from "../types";
+import shaka from "shaka-player/dist/shaka-player.ui";
+import { settingsService } from "../services/settingsService"; // ✅ أضفنا استيراد إعدادات المستخدم
 
-const PlayerScreen: React.FC<PlayerArgs> = ({ stream, episode }) => {
-  const { playlist, setScreen, addRecentlyWatched, screen, setIsPipActive } = useAppContext();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
+type Subtitle = { label: string; src: string; lang?: string };
+type QualityTrack = { label: string; height: number; id: number };
 
-  const [isLoading, setIsLoading] = useState(true);
+const getStreamUrl = (stream: Stream | undefined): string | null => {
+  const anyStream = stream as any;
+  return (
+    anyStream?.url ||
+    anyStream?.stream_url ||
+    anyStream?.hls ||
+    anyStream?.dash ||
+    null
+  );
+};
+
+const getSubtitles = (stream: Stream | undefined): Subtitle[] => {
+  const anyStream = stream as any;
+  if (Array.isArray(anyStream?.subtitles)) {
+    return anyStream.subtitles as Subtitle[];
+  }
+  return [];
+};
+
+const PlayerScreen: React.FC = () => {
+  const { screenParams, setScreen } = useAppContext() as any;
+  const stream: Stream | undefined = screenParams?.stream;
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<any | null>(null);
+
+  const [isReady, setIsReady] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(1);
-  const [isControlsVisible, setIsControlsVisible] = useState(true);
-  const [isMetadataLoaded, setIsMetadataLoaded] = useState(false);
+  const [pipSupported, setPipSupported] = useState(false);
+  const [currentLang, setCurrentLang] = useState<string>("");
+  const [qualityList, setQualityList] = useState<QualityTrack[]>([]);
+  const [currentQuality, setCurrentQuality] = useState<string>("Auto");
 
-  const handleGoBack = useCallback(() => {
-    if (stream.stream_type !== 'live') {
-      setScreen(Screen.DETAILS, { stream });
-    } else {
-      setScreen(Screen.HOME);
-    }
-  }, [setScreen, stream]);
+  const url = getStreamUrl(stream);
+  const subtitles = getSubtitles(stream);
 
   useEffect(() => {
-    addRecentlyWatched(stream);
+    const v = videoRef.current as any;
+    setPipSupported(!!(document as any).pictureInPictureEnabled && !!v?.requestPictureInPicture);
+  }, []);
 
-    if (!playlist) {
-      setError('Playlist not found.');
-      setIsLoading(false);
+  useEffect(() => {
+    if (!videoRef.current || !containerRef.current || !url) {
+      setError("Missing stream URL or video element.");
       return;
     }
 
-    let src = '';
-    if (playlist.loginType === 'm3u' && stream.url) {
-      src = stream.url;
-    } else {
-      switch (stream.stream_type) {
-        case 'live':
-          src = xtreamService.getLiveStreamUrl(playlist, stream.stream_id);
-          break;
-        case 'movie':
-          src = xtreamService.getVodStreamUrl(playlist, stream.stream_id);
-          break;
-        case 'series':
-          if (episode) {
-            src = xtreamService.getSeriesStreamUrl(
-              playlist,
-              episode.stream_id,
-              episode.container_extension
-            );
-          } else {
-            setError('No episode selected for this series.');
-            setIsLoading(false);
-            return;
-          }
-          break;
-        default:
-          setError('Unsupported stream type.');
-          setIsLoading(false);
-          return;
-      }
+    // ✅ قراءة الإعدادات المفضلة للمستخدم
+    const settings = settingsService.get();
+    const preferredQuality = settings.quality || "auto";
+    const preferredSubtitle = settings.subtitleLang || "off";
+
+    shaka.polyfill.installAll();
+
+    if (!shaka.Player.isBrowserSupported()) {
+      setError("This browser/TV does not support Shaka Player.");
+      return;
     }
 
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
+    const video = videoRef.current;
+    const player = new shaka.Player(video);
+    playerRef.current = player;
 
-    const startPlayback = () => {
-        videoElement.play().catch(err => {
-            console.warn("Autoplay was prevented by the browser.", err);
-            setIsPlaying(false);
-        });
-    };
+    player.configure({
+      streaming: { rebufferingGoal: 2, bufferingGoal: 10, lowLatencyMode: true },
+      manifest: { retryParameters: { maxAttempts: 3 } },
+    });
 
-    if (src.includes('.m3u8') && Hls.isSupported()) {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-      }
-      const hls = new Hls();
-      hlsRef.current = hls;
-      hls.loadSource(src);
-      hls.attachMedia(videoElement);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        startPlayback();
-      });
-      hls.on(Hls.Events.ERROR, (event, data) => {
-        if (data.fatal) {
-          console.error('HLS fatal error:', data);
-          setError('Could not load the stream. The source may be offline or incompatible.');
-          setIsLoading(false);
+    const onError = (e: any) => setError("Playback error: " + (e?.detail?.message || e?.detail?.code || ""));
+    player.addEventListener("error", onError);
+    player.addEventListener("buffering", (e: any) => setIsBuffering(e.buffering));
+
+    player
+      .load(url)
+      .then(async () => {
+        setIsReady(true);
+        setIsBuffering(false);
+
+        // جلب الجودات المتاحة
+        const tracks = player.getVariantTracks();
+        const formatted = tracks
+          .filter((t: any) => t.height)
+          .map((t: any) => ({
+            label: `${t.height}p`,
+            height: t.height,
+            id: t.id,
+          }))
+          .sort((a: any, b: any) => b.height - a.height);
+
+        setQualityList([{ label: "Auto", height: 0, id: -1 }, ...formatted]);
+
+        // إضافة الترجمات
+        for (const t of subtitles) {
+          if (!t?.src) continue;
+          await player.addTextTrack(
+            t.src,
+            t.lang || "en",
+            "subtitle",
+            "text/vtt",
+            undefined,
+            t.label || t.lang || "Subtitle"
+          );
         }
+
+        // ✅ تطبيق الترجمة من الإعدادات
+        if (preferredSubtitle === "off") {
+          player.setTextTrackVisibility(false);
+        } else {
+          player.setTextTrackVisibility(true);
+          player.selectTextLanguage(preferredSubtitle);
+          setCurrentLang(preferredSubtitle);
+        }
+
+        // ✅ تطبيق الجودة من الإعدادات
+        if (preferredQuality !== "auto") {
+          player.configure({ abr: { enabled: false } });
+          const track = player
+            .getVariantTracks()
+            .find((t: any) => `${t.height}p` === preferredQuality);
+          if (track) player.selectVariantTrack(track, true);
+          setCurrentQuality(preferredQuality);
+        } else {
+          player.configure({ abr: { enabled: true } });
+          setCurrentQuality("Auto");
+        }
+      })
+      .catch((err: any) => {
+        setError("Failed to load stream: " + (err?.message || ""));
+        setIsBuffering(false);
       });
-    } else {
-        videoElement.src = src;
-        videoElement.addEventListener('loadedmetadata', startPlayback, { once: true });
-    }
 
     return () => {
-        videoElement.removeEventListener('loadedmetadata', startPlayback);
-         if (hlsRef.current) {
-            hlsRef.current.destroy();
-        }
+      player.destroy().catch(() => {});
+      playerRef.current = null;
     };
+  }, [url]);
 
-  }, [playlist, stream, episode, addRecentlyWatched]);
+  // باقي الكود بدون تغيير ...
 
-  const togglePlayPause = () => {
-    if (videoRef.current) {
-      videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause();
-    }
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.paused ? v.play() : v.pause();
   };
 
   const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setIsMuted(videoRef.current.muted);
-    }
-  };
-  
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newVolume = parseFloat(e.target.value);
-      if (videoRef.current) {
-          videoRef.current.volume = newVolume;
-          setVolume(newVolume);
-          if (newVolume > 0 && isMuted) {
-              setIsMuted(false);
-              videoRef.current.muted = false;
-          } else if (newVolume === 0) {
-              setIsMuted(true);
-              videoRef.current.muted = true;
-          }
-      }
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setIsMuted(v.muted);
   };
 
-  const toggleFullScreen = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      document.documentElement.requestFullscreen();
-    }
+  const toggleFullscreen = () => {
+    const el = containerRef.current as any;
+    if (!el) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else el.requestFullscreen?.();
   };
 
   const togglePiP = async () => {
-    if (!document.pictureInPictureEnabled || !videoRef.current || !isMetadataLoaded) return;
-    try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-      } else {
-        await videoRef.current.requestPictureInPicture();
-      }
-    } catch (err) {
-      console.error('PiP Error:', err);
+    if (!pipSupported) return;
+    const v = videoRef.current as any;
+    if ((document as any).pictureInPictureElement) await (document as any).exitPictureInPicture();
+    else await v.requestPictureInPicture();
+  };
+
+  const changeSubtitle = (lang: string) => {
+    setCurrentLang(lang);
+    const player = playerRef.current;
+    if (!player) return;
+    if (lang === "off") player.setTextTrackVisibility(false);
+    else {
+      player.setTextTrackVisibility(true);
+      player.selectTextLanguage(lang);
     }
   };
-  
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleVolume = () => {
-        setVolume(video.volume);
-        setIsMuted(video.muted);
-    };
-    const handleEnterPiP = () => {
-      setIsPipActive(true);
-      setIsControlsVisible(false);
-    };
-    const handleLeavePiP = () => {
-      setIsPipActive(false);
-      setIsControlsVisible(true);
-      // When user leaves PiP (e.g., closes window or clicks 'back to tab'),
-      // ensure they are brought back to the fullscreen player.
-      if (screen !== Screen.PLAYER) {
-         setScreen(Screen.PLAYER, { stream, episode });
-      }
-    };
+  const changeQuality = (label: string) => {
+    const player = playerRef.current;
+    if (!player) return;
+    setCurrentQuality(label);
 
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
-    video.addEventListener('volumechange', handleVolume);
-    video.addEventListener('enterpictureinpicture', handleEnterPiP);
-    video.addEventListener('leavepictureinpicture', handleLeavePiP);
-    
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
+    if (label === "Auto") {
+      player.configure({ abr: { enabled: true } });
+    } else {
+      player.configure({ abr: { enabled: false } });
+      const selected = qualityList.find((q) => q.label === label);
+      if (selected) {
+        player.selectVariantTrack(
+          player.getVariantTracks().find((t: any) => t.height === selected.height),
+          true
+        );
       }
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
-      video.removeEventListener('volumechange', handleVolume);
-      video.removeEventListener('enterpictureinpicture', handleEnterPiP);
-      video.removeEventListener('leavepictureinpicture', handleLeavePiP);
-    };
-  }, [setIsPipActive, setScreen, screen, stream, episode]);
-  
-  const title = episode ? `${stream.name} - ${episode.title}` : stream.name;
+    }
+  };
+
+  const title = (stream as any)?.name || (stream as any)?.title || "Now Playing";
 
   return (
-    <div className="w-screen h-screen bg-black flex items-center justify-center text-white group"
-         onMouseEnter={() => setIsControlsVisible(true)}
-         onMouseLeave={() => setIsControlsVisible(false)}
-    >
+    <div ref={containerRef} className="relative w-full h-screen bg-black text-white">
       <video
         ref={videoRef}
+        className="w-full h-full object-contain"
         autoPlay
         playsInline
-        className={`w-full h-full object-contain ${isLoading || error ? 'hidden' : ''}`}
-        onCanPlay={() => setIsLoading(false)}
-        onLoadedMetadata={() => setIsMetadataLoaded(true)}
-        onError={() => {
-          if (!hlsRef.current) {
-             setError('Could not load the video. Format may not be supported or URL is invalid.');
-             setIsLoading(false);
-          }
-        }}
-        onClick={togglePlayPause}
+        controls={false}
+        muted={isMuted}
       />
-      
-      {(isLoading || error) && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center p-4">
-          {isLoading && !error && <><LoadingSpinner size="lg" /><p className="mt-4">Loading stream...</p></>}
-          {error && <><p className="text-red-500 text-lg">{error}</p><button onClick={handleGoBack} className="mt-4 px-4 py-2 bg-purple-600 rounded-md">Go Back</button></>}
+
+      <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <span className="text-sm text-gray-300">
+            {isBuffering ? "Buffering…" : isReady ? "Live" : "Loading…"}
+          </span>
+        </div>
+      </div>
+
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+          <div className="bg-red-600/30 border border-red-500 rounded-xl p-6 text-center max-w-md">
+            <p className="font-semibold mb-2">Error</p>
+            <p>{error}</p>
+            <button
+              onClick={() => setScreen("HOME")}
+              className="mt-4 px-4 py-2 bg-red-600/40 hover:bg-red-600/60 rounded-md"
+            >
+              Back
+            </button>
+          </div>
         </div>
       )}
 
-      <div className={`absolute top-0 left-0 right-0 p-4 z-20 bg-gradient-to-b from-black/70 via-black/40 to-transparent transition-opacity duration-300 ${isControlsVisible ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="flex items-center gap-4">
-            <button onClick={handleGoBack} className="bg-black/50 rounded-full p-2 hover:bg-black/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500" title="Go Back">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-            </button>
-            <h1 className="text-lg font-semibold truncate">{title}</h1>
-        </div>
-      </div>
-      
-      <div className={`absolute bottom-0 left-0 right-0 p-4 z-20 bg-gradient-to-t from-black/70 via-black/40 to-transparent transition-opacity duration-300 ${isControlsVisible ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="flex items-center gap-4">
-            <button onClick={togglePlayPause} title={isPlaying ? 'Pause' : 'Play'} className="p-2 bg-black/50 rounded-full hover:bg-black/75">
-                {isPlaying 
-                    ? <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                    : <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                }
-            </button>
-            
-            <div className="flex items-center gap-2">
-                <button onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'} className="p-1 bg-black/50 rounded-full hover:bg-black/75">
-                     {isMuted || volume === 0
-                        ? <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
-                        : <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                     }
-                </button>
-                <input type="range" min="0" max="1" step="0.05" value={volume} onChange={handleVolumeChange} className="w-24 h-1 accent-purple-500"/>
-            </div>
-            
-            <div className="flex-grow"></div>
-            
-            {document.pictureInPictureEnabled && (
-                <button
-                  onClick={togglePiP}
-                  title="Picture-in-Picture"
-                  disabled={!isMetadataLoaded}
-                  className="p-1 bg-black/50 rounded-full hover:bg-black/75 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>
-                </button>
-            )}
+      {/* الأدوات السفلية */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex flex-wrap items-center gap-3">
+        <button onClick={togglePlay} className="bg-white/10 px-3 py-2 rounded-md">
+          ⏯ Play/Pause
+        </button>
+        <button onClick={toggleMute} className="bg-white/10 px-3 py-2 rounded-md">
+          {isMuted ? "🔇 Unmute" : "🔊 Mute"}
+        </button>
+        <button onClick={toggleFullscreen} className="bg-white/10 px-3 py-2 rounded-md">
+          ⛶ Fullscreen
+        </button>
+        <button
+          onClick={togglePiP}
+          disabled={!pipSupported}
+          className={`px-3 py-2 rounded-md ${
+            pipSupported ? "bg-white/10" : "bg-white/5 opacity-50"
+          }`}
+        >
+          🗔 PiP
+        </button>
 
-            <button onClick={toggleFullScreen} title="Fullscreen" className="p-1 bg-black/50 rounded-full hover:bg-black/75">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-            </button>
-        </div>
+        {/* الترجمة */}
+        {subtitles.length > 0 && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-gray-400">Subtitle:</span>
+            <select
+              value={currentLang}
+              onChange={(e) => changeSubtitle(e.target.value)}
+              className="bg-white/10 px-2 py-1 rounded-md"
+            >
+              <option value="off">Off</option>
+              {subtitles.map((s, i) => (
+                <option key={i} value={s.lang || `lang-${i}`}>
+                  {s.label || s.lang}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* الجودات */}
+        {qualityList.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">Quality:</span>
+            <select
+              value={currentQuality}
+              onChange={(e) => changeQuality(e.target.value)}
+              className="bg-white/10 px-2 py-1 rounded-md"
+            >
+              {qualityList.map((q, i) => (
+                <option key={i} value={q.label}>
+                  {q.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
     </div>
   );
