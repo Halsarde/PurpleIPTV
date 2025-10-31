@@ -2,7 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 // FIX: Corrected import path for App component
-import App from './App';
+import App from "./src/App";
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

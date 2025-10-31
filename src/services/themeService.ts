@@ -1,52 +1,20 @@
-const CACHE_PREFIX = 'purple_iptv_cache_';
-const CACHE_EXPIRATION_MS = 5 * 60 * 1000; // 5 minutes
+// src/services/themeService.ts
+export const themeService = {
+  apply(theme: string) {
+    const root = document.documentElement;
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-interface CacheItem<T> {
-  timestamp: number;
-  data: T;
-}
+    if (theme === "dark" || (theme === "system" && prefersDark)) {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
 
-export const cacheService = {
-  get: <T>(key: string): T | null => {
-    const itemStr = localStorage.getItem(`${CACHE_PREFIX}${key}`);
-    if (!itemStr) {
-      return null;
-    }
-    try {
-      const item: CacheItem<T> = JSON.parse(itemStr);
-      const now = Date.now();
-      if (now - item.timestamp > CACHE_EXPIRATION_MS) {
-        localStorage.removeItem(`${CACHE_PREFIX}${key}`);
-        return null;
-      }
-      return item.data;
-    } catch (error) {
-      console.error('Cache read error:', error);
-      return null;
-    }
+    // تخزين التفضيل
+    localStorage.setItem("theme", theme);
   },
 
-  set: <T>(key: string, data: T): void => {
-    const item: CacheItem<T> = {
-      timestamp: Date.now(),
-      data,
-    };
-    try {
-      localStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(item));
-    } catch (error) {
-      console.error('Cache write error:', error);
-    }
+  get() {
+    return localStorage.getItem("theme") || "system";
   },
-
-  clear: (key: string): void => {
-    localStorage.removeItem(`${CACHE_PREFIX}${key}`);
-  },
-
-  clearAll: (): void => {
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith(CACHE_PREFIX)) {
-        localStorage.removeItem(key);
-      }
-    });
-  }
 };

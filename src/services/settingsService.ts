@@ -1,52 +1,46 @@
-const CACHE_PREFIX = 'purple_iptv_cache_';
-const CACHE_EXPIRATION_MS = 5 * 60 * 1000; // 5 minutes
+// ✅ src/services/settingsService.ts
+export type Settings = {
+  theme: "light" | "dark" | "system";
+  fontSize: "small" | "medium" | "large";
+  quality: "auto" | "1080p" | "720p" | "480p";
+  subtitleLang: "off" | "ar" | "en";
+  appLang: "ar" | "en";
+};
 
-interface CacheItem<T> {
-  timestamp: number;
-  data: T;
-}
+// الإعدادات الافتراضية
+const DEFAULT_SETTINGS: Settings = {
+  theme: "system",
+  fontSize: "medium",
+  quality: "auto",
+  subtitleLang: "off",
+  appLang: "ar",
+};
 
-export const cacheService = {
-  get: <T>(key: string): T | null => {
-    const itemStr = localStorage.getItem(`${CACHE_PREFIX}${key}`);
-    if (!itemStr) {
-      return null;
-    }
+// ✅ خدمة إدارة الإعدادات (تخزين واسترجاع)
+const STORAGE_KEY = "purple_settings";
+
+export const settingsService = {
+  get(): Settings {
     try {
-      const item: CacheItem<T> = JSON.parse(itemStr);
-      const now = Date.now();
-      if (now - item.timestamp > CACHE_EXPIRATION_MS) {
-        localStorage.removeItem(`${CACHE_PREFIX}${key}`);
-        return null;
-      }
-      return item.data;
-    } catch (error) {
-      console.error('Cache read error:', error);
-      return null;
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return DEFAULT_SETTINGS;
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    } catch {
+      return DEFAULT_SETTINGS;
     }
   },
 
-  set: <T>(key: string, data: T): void => {
-    const item: CacheItem<T> = {
-      timestamp: Date.now(),
-      data,
-    };
+  update(newSettings: Partial<Settings>) {
     try {
-      localStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(item));
-    } catch (error) {
-      console.error('Cache write error:', error);
+      const current = this.get();
+      const merged = { ...current, ...newSettings };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    } catch (e) {
+      console.error("⚠️ Failed to update settings:", e);
     }
   },
 
-  clear: (key: string): void => {
-    localStorage.removeItem(`${CACHE_PREFIX}${key}`);
+  reset() {
+    localStorage.removeItem(STORAGE_KEY);
   },
-
-  clearAll: (): void => {
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith(CACHE_PREFIX)) {
-        localStorage.removeItem(key);
-      }
-    });
-  }
 };

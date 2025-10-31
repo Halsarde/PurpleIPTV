@@ -113,3 +113,19 @@ export interface PlayerArgs {
 export interface DetailsArgs {
     stream: Stream;
 }
+// === Auth session types ===
+export type AuthKind = "none" | "m3u" | "xtream";
+
+export interface M3USession {
+  kind: "m3u";
+  m3uUrl: string;
+}
+
+export interface XtreamSession {
+  kind: "xtream";
+  serverUrl: string; // مثال: http(s)://host:port
+  username: string;
+  password: string;
+}
+
+export type AuthSession = M3USession | XtreamSession | { kind: "none" };

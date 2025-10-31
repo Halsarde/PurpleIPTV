@@ -1,52 +1,52 @@
-const CACHE_PREFIX = 'purple_iptv_cache_';
-const CACHE_EXPIRATION_MS = 5 * 60 * 1000; // 5 minutes
+// ✅ src/services/langService.ts
 
-interface CacheItem<T> {
-  timestamp: number;
-  data: T;
-}
+type Lang = "ar" | "en";
 
-export const cacheService = {
-  get: <T>(key: string): T | null => {
-    const itemStr = localStorage.getItem(`${CACHE_PREFIX}${key}`);
-    if (!itemStr) {
-      return null;
-    }
-    try {
-      const item: CacheItem<T> = JSON.parse(itemStr);
-      const now = Date.now();
-      if (now - item.timestamp > CACHE_EXPIRATION_MS) {
-        localStorage.removeItem(`${CACHE_PREFIX}${key}`);
-        return null;
-      }
-      return item.data;
-    } catch (error) {
-      console.error('Cache read error:', error);
-      return null;
-    }
+type Translations = Record<string, { ar: string; en: string }>;
+
+const messages: Translations = {
+  settings: { ar: "الإعدادات", en: "Settings" },
+  back: { ar: "رجوع", en: "Back" },
+  clearCache: { ar: "مسح الكاش", en: "Clear Cache" },
+  confirmClear: {
+    ar: "هل أنت متأكد من مسح الكاش؟",
+    en: "Are you sure you want to clear cache?",
+  },
+  cacheCleared: {
+    ar: "تم مسح الكاش بنجاح ✅",
+    en: "Cache cleared successfully ✅",
+  },
+  developedBy: {
+    ar: "تم تطويره بحب في الأردن من قبل",
+    en: "Developed with ❤️ in Jordan by",
+  },
+  theme: { ar: "السمة", en: "Theme" },
+  fontSize: { ar: "حجم الخط", en: "Font Size" },
+  quality: { ar: "الجودة", en: "Quality" },
+  subtitleLang: { ar: "لغة الترجمة", en: "Subtitle Language" },
+  appLang: { ar: "لغة التطبيق", en: "App Language" },
+};
+
+let currentLang: Lang = "ar";
+
+export const langService = {
+  get currentLang() {
+    return currentLang;
   },
 
-  set: <T>(key: string, data: T): void => {
-    const item: CacheItem<T> = {
-      timestamp: Date.now(),
-      data,
-    };
-    try {
-      localStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(item));
-    } catch (error) {
-      console.error('Cache write error:', error);
-    }
+  setLang(lang: Lang) {
+    currentLang = lang;
+    localStorage.setItem("purple_lang", lang);
   },
 
-  clear: (key: string): void => {
-    localStorage.removeItem(`${CACHE_PREFIX}${key}`);
+  load() {
+    const stored = localStorage.getItem("purple_lang") as Lang | null;
+    if (stored === "en" || stored === "ar") currentLang = stored;
   },
 
-  clearAll: (): void => {
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith(CACHE_PREFIX)) {
-        localStorage.removeItem(key);
-      }
-    });
-  }
+  t(key: keyof typeof messages): string {
+    const msg = messages[key];
+    if (!msg) return key;
+    return msg[currentLang] || key;
+  },
 };

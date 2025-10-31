@@ -103,7 +103,7 @@ const PlayerScreen: React.FC = () => {
         // إضافة الترجمات
         for (const t of subtitles) {
           if (!t?.src) continue;
-          await player.addTextTrack(
+          await player.addTextTrackAsync(
             t.src,
             t.lang || "en",
             "subtitle",
