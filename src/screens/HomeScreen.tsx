@@ -1,3 +1,4 @@
+// src/screens/HomeScreen.tsx
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAppContext } from "../context/AppContext";
 import { Category, Stream } from "../types";
@@ -31,32 +32,35 @@ const HomeScreen: React.FC = () => {
     async (type: ContentType) => {
       if (!playlist) return;
 
-      // M3U mode
+      // ===== M3U Mode =====
       if (playlist.loginType === "m3u") {
-        const typeMap: Record<ContentType, string | undefined> = {
+        const typeMap: Record<ContentType, "live" | "movie" | "series" | undefined> = {
           live: "live",
           movie: "movie",
           series: "series",
           favorites: undefined,
           recents: undefined,
         };
+        const wanted = typeMap[type];
+        if (!wanted) {
+          setCategories([]);
+          return;
+        }
 
-        const streamType = typeMap[type];
-        const relevantCategories =
-          (playlist.categories || [])
-            .filter((cat) =>
-              (playlist.streams || []).some(
-                (s) => s.category_id === cat.category_id && s.stream_type === streamType
-              )
-            )
-            .map((c) => ({ ...c, parent_id: c.parent_id ?? 0 }));
- // ✅ إضافة parent_id لتفادي الخطأ
+        const allStreams = playlist.streams || [];
+        const relevantCategories = (playlist.categories || []).filter((cat) =>
+          allStreams.some(
+            (s) => s.category_id === cat.category_id && s.stream_type === wanted
+          )
+        );
 
-        setCategories(relevantCategories as any);
+        setCategories(
+          relevantCategories.map((c) => ({ ...c, parent_id: c.parent_id ?? 0 })) as Category[]
+        );
         return;
       }
 
-      // Xtream mode + cache
+      // ===== Xtream Mode =====
       const cacheKey = `${playlist.user_info?.username}-${type}-categories`;
       const cached = cacheService.get<Category[]>(cacheKey);
       if (cached) {
@@ -81,32 +85,33 @@ const HomeScreen: React.FC = () => {
       setIsLoading(true);
       if (!playlist) return;
 
-      // M3U mode
+      // ===== M3U Mode =====
       if (playlist.loginType === "m3u") {
-  const typeMap: Record<ContentType, string | undefined> = {
-    live: "live",
-    movie: "movie",
-    series: "series",
-    favorites: undefined,
-    recents: undefined,
-  };
+        const typeMap: Record<ContentType, "live" | "movie" | "series" | undefined> = {
+          live: "live",
+          movie: "movie",
+          series: "series",
+          favorites: undefined,
+          recents: undefined,
+        };
+        const wanted = typeMap[type];
+        if (!wanted) {
+          setStreams([]);
+          setIsLoading(false);
+          return;
+        }
 
-  const streamType = typeMap[type];
+        let list = (playlist.streams || []).filter((s) => s.stream_type === wanted);
+        if (categoryId !== "all") {
+          list = list.filter((s) => s.category_id === categoryId);
+        }
 
-  const relevantCategories =
-    (playlist.categories || [])
-      .filter((cat) =>
-        (playlist.streams || []).some(
-          (s) => s.category_id === cat.category_id && s.stream_type === streamType
-        )
-      )
-      .map((c) => ({ ...c, parent_id: c.parent_id ?? 0 }));
+        setStreams(list as Stream[]);
+        setIsLoading(false);
+        return;
+      }
 
-  setCategories(relevantCategories);
-  return;
-}
-
-
+      // ===== Xtream Mode =====
       const cacheKey = `${playlist.user_info?.username}-${type}-streams-${categoryId}`;
       const cached = cacheService.get<Stream[]>(cacheKey);
       if (cached) {
@@ -150,7 +155,11 @@ const HomeScreen: React.FC = () => {
 
   const handleCategoryChange = (id: string) => {
     setSelectedCategory(id);
-    if (contentType !== "favorites" && contentType !== "recents" && playlist?.loginType !== "m3u") {
+    if (
+      contentType !== "favorites" &&
+      contentType !== "recents" &&
+      playlist?.loginType !== "m3u"
+    ) {
       fetchStreams(contentType, id);
     }
   };
@@ -191,7 +200,6 @@ const HomeScreen: React.FC = () => {
           <h1 className="text-xl font-bold tracking-wide">Purple IPTV</h1>
 
           <div className="flex items-center gap-3">
-            {/* زر الإعدادات */}
             <button
               onClick={() => setScreen("settings")}
               className="text-gray-300 hover:text-white bg-[#1F1F2E] px-3 py-2 rounded-lg text-sm transition"
@@ -199,7 +207,6 @@ const HomeScreen: React.FC = () => {
               ⚙️ الإعدادات
             </button>
 
-            {/* زر تسجيل الخروج */}
             <button
               onClick={() => {
                 if (window.confirm("هل تريد تسجيل الخروج؟")) {

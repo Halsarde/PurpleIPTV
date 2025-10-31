@@ -31,7 +31,8 @@ type AppContextType = {
   isPipActive: boolean;
   setIsPipActive: (v: boolean) => void;
 
-  // تسجيل الخروج
+  // تسجيل الدخول والخروج
+  login: (playlistData: Partial<Playlist>) => void; // ✅ أضفناها هنا
   logout: () => void;
 };
 
@@ -69,7 +70,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // ✅ دالة تسجيل الخروج (في نفس المستوى داخل AppProvider)
+  // ✅ دالة تسجيل الدخول
+  const login = (playlistData: Partial<Playlist>) => {
+    try {
+      setPlaylist(playlistData);
+      setIsLoggedIn(true);
+      setScreen("home");
+    } catch (err) {
+      console.error("Login error:", err);
+    }
+  };
+
+  // ✅ دالة تسجيل الخروج
   const logout = () => {
     try {
       setIsLoggedIn(false);
@@ -97,6 +109,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addRecentlyWatched,
         isPipActive,
         setIsPipActive,
+        login, // ✅ أضفناها هنا أيضًا
         logout,
       }}
     >
