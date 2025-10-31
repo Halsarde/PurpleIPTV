@@ -1,4 +1,4 @@
-// src/components/Sidebar.tsx
+// ✅ src/components/Sidebar.tsx
 import React from "react";
 
 type ContentType = "live" | "movie" | "series" | "favorites" | "recents";
@@ -8,7 +8,8 @@ type SidebarProps = {
   onContentTypeChange: (type: ContentType) => void;
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ contentType, onContentTypeChange }) => {
+// ✅ استخدمنا React.memo لتقليل إعادة التصيير غير الضرورية
+export const Sidebar: React.FC<SidebarProps> = React.memo(({ contentType, onContentTypeChange }) => {
   const items: { key: ContentType; label: string }[] = [
     { key: "live", label: "Live" },
     { key: "movie", label: "Movies" },
@@ -24,8 +25,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ contentType, onContentTypeChan
           <button
             key={it.key}
             onClick={() => onContentTypeChange(it.key)}
-            className={`w-full text-left px-3 py-2 rounded-md ${
-              contentType === it.key ? "bg-purple-600" : "bg-white/10 hover:bg-white/20"
+            className={`w-full text-left px-3 py-2 rounded-md transition ${
+              contentType === it.key
+                ? "bg-purple-600 text-white"
+                : "bg-white/10 hover:bg-white/20 text-gray-300"
             }`}
           >
             {it.label}
@@ -34,4 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ contentType, onContentTypeChan
       </nav>
     </aside>
   );
-};
+});
+
+// ✅ يمكن ترك هذا السطر إذا يُستورد باسم default في مكان آخر
+export default Sidebar;

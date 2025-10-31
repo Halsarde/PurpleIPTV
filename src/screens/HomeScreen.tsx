@@ -232,10 +232,12 @@ const HomeScreen: React.FC = () => {
 
         {/* ===== المحتوى ===== */}
         {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <LoadingSpinner size="lg" />
-          </div>
-        ) : filteredStreams.length > 0 ? (
+  <div className="animate-pulse grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+    {Array(8).fill(0).map((_, i) => (
+      <div key={i} className="bg-[#1F1F2E] h-40 rounded-xl" />
+    ))}
+  </div>
+) : filteredStreams.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 mt-6">
             {filteredStreams.map((stream) => (
               <CardItem

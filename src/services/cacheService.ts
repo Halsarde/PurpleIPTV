@@ -1,52 +1,18 @@
-const CACHE_PREFIX = 'purple_iptv_cache_';
-const CACHE_EXPIRATION_MS = 5 * 60 * 1000; // 5 minutes
-
-interface CacheItem<T> {
-  timestamp: number;
-  data: T;
-}
-
 export const cacheService = {
-  get: <T>(key: string): T | null => {
-    const itemStr = localStorage.getItem(`${CACHE_PREFIX}${key}`);
-    if (!itemStr) {
+  set(key: string, data: any, ttl = 1000 * 60 * 60) {
+    localStorage.setItem(
+      key,
+      JSON.stringify({ data, expiry: Date.now() + ttl })
+    );
+  },
+  get<T>(key: string): T | null {
+    const cached = localStorage.getItem(key);
+    if (!cached) return null;
+    const { data, expiry } = JSON.parse(cached);
+    if (Date.now() > expiry) {
+      localStorage.removeItem(key);
       return null;
     }
-    try {
-      const item: CacheItem<T> = JSON.parse(itemStr);
-      const now = Date.now();
-      if (now - item.timestamp > CACHE_EXPIRATION_MS) {
-        localStorage.removeItem(`${CACHE_PREFIX}${key}`);
-        return null;
-      }
-      return item.data;
-    } catch (error) {
-      console.error('Cache read error:', error);
-      return null;
-    }
+    return data;
   },
-
-  set: <T>(key: string, data: T): void => {
-    const item: CacheItem<T> = {
-      timestamp: Date.now(),
-      data,
-    };
-    try {
-      localStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(item));
-    } catch (error) {
-      console.error('Cache write error:', error);
-    }
-  },
-
-  clear: (key: string): void => {
-    localStorage.removeItem(`${CACHE_PREFIX}${key}`);
-  },
-
-  clearAll: (): void => {
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith(CACHE_PREFIX)) {
-        localStorage.removeItem(key);
-      }
-    });
-  }
 };

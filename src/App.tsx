@@ -1,21 +1,23 @@
-// src/App.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { AppProvider, useAppContext } from "./context/AppContext";
-import AuthScreen from "./screens/AuthScreen";
-import HomeScreen from "./screens/HomeScreen";
-import DetailsScreen from "./screens/DetailsScreen";
-import SettingsScreen from "./screens/SettingsScreen";
 import SplashScreen from "./screens/SplashScreen";
-import PlayerScreen from "./screens/PlayerScreen";
+import { LoadingSpinner } from "./components/LoadingSpinner";
+
+// ✅ Lazy loading للشاشات الثقيلة
+const AuthScreen = React.lazy(() => import("./screens/AuthScreen"));
+const HomeScreen = React.lazy(() => import("./screens/HomeScreen"));
+const DetailsScreen = React.lazy(() => import("./screens/DetailsScreen"));
+const SettingsScreen = React.lazy(() => import("./screens/SettingsScreen"));
+const PlayerScreen = React.lazy(() => import("./screens/PlayerScreen"));
 
 const AppContent: React.FC = () => {
-  const { screen, screenParams, isLoggedIn } = useAppContext();
+  const { screen, screenParams } = useAppContext();
   const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsCheckingSession(false);
-    }, 1500);
+    }, 1200);
     return () => clearTimeout(timer);
   }, []);
 
@@ -23,27 +25,33 @@ const AppContent: React.FC = () => {
     return <SplashScreen onComplete={() => setIsCheckingSession(false)} />;
   }
 
-  // ✅ تأكد من تسجيل الدخول قبل الذهاب لأي شاشة غير auth
-  if (!isLoggedIn && screen !== "auth") {
-    return <AuthScreen />;
-  }
-
-  switch (screen) {
-    case "auth":
-      return <AuthScreen />;
-    case "home":
-      return <HomeScreen />;
-    case "details":
-      return <DetailsScreen {...(screenParams || {})} />;
-    case "settings":
-      return <SettingsScreen />;
-    case "player":
-      return <PlayerScreen {...(screenParams || {})} />;
-    default:
-      return <SplashScreen onComplete={() => setIsCheckingSession(false)} />;
-  }
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center h-screen bg-[#0D0D12] text-white">
+          <LoadingSpinner size="lg" />
+        </div>
+      }
+    >
+      {(() => {
+        switch (screen) {
+          case "auth":
+            return <AuthScreen />;
+          case "home":
+            return <HomeScreen />;
+          case "details":
+            return <DetailsScreen {...(screenParams || {})} />;
+          case "settings":
+            return <SettingsScreen />;
+          case "player":
+            return <PlayerScreen {...(screenParams || {})} />;
+          default:
+            return <SplashScreen onComplete={() => setIsCheckingSession(false)} />;
+        }
+      })()}
+    </Suspense>
+  );
 };
-
 
 const App: React.FC = () => (
   <AppProvider>
