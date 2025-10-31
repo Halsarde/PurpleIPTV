@@ -83,9 +83,29 @@ const HomeScreen: React.FC = () => {
 
       // M3U mode
       if (playlist.loginType === "m3u") {
-        setIsLoading(false);
-        return;
-      }
+  const typeMap: Record<ContentType, string | undefined> = {
+    live: "live",
+    movie: "movie",
+    series: "series",
+    favorites: undefined,
+    recents: undefined,
+  };
+
+  const streamType = typeMap[type];
+
+  const relevantCategories =
+    (playlist.categories || [])
+      .filter((cat) =>
+        (playlist.streams || []).some(
+          (s) => s.category_id === cat.category_id && s.stream_type === streamType
+        )
+      )
+      .map((c) => ({ ...c, parent_id: c.parent_id ?? 0 }));
+
+  setCategories(relevantCategories);
+  return;
+}
+
 
       const cacheKey = `${playlist.user_info?.username}-${type}-streams-${categoryId}`;
       const cached = cacheService.get<Stream[]>(cacheKey);
