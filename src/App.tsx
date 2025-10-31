@@ -1,5 +1,6 @@
+// src/App.tsx
 import React, { useState, useEffect } from "react";
-import { AppProvider, useAppContext } from './context/AppContext';
+import { AppProvider, useAppContext } from "./context/AppContext";
 import AuthScreen from "./screens/AuthScreen";
 import HomeScreen from "./screens/HomeScreen";
 import DetailsScreen from "./screens/DetailsScreen";
@@ -8,20 +9,24 @@ import SplashScreen from "./screens/SplashScreen";
 import PlayerScreen from "./screens/PlayerScreen";
 
 const AppContent: React.FC = () => {
-  const { screen, screenParams } = useAppContext();
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const { screen, screenParams, isLoggedIn, setScreen } = useAppContext();
+  const [isLoading, setIsLoading] = useState(true);
 
+  // ⏳ عرض شاشة التحميل 1.5 ثانية ثم التحقق من الجلسة
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIsCheckingSession(false);
+      setIsLoading(false);
+      if (isLoggedIn) setScreen("home");
+      else setScreen("auth");
     }, 1500);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isLoggedIn, setScreen]);
 
-  if (isCheckingSession) {
-    return <SplashScreen onComplete={() => setIsCheckingSession(false)} />;
+  if (isLoading) {
+    return <SplashScreen />;
   }
 
+  // 🧭 التنقل بين الشاشات
   switch (screen) {
     case "auth":
       return <AuthScreen />;
@@ -34,16 +39,14 @@ const AppContent: React.FC = () => {
     case "player":
       return <PlayerScreen {...(screenParams || {})} />;
     default:
-      return <SplashScreen onComplete={() => setIsCheckingSession(false)} />;
+      return <SplashScreen />;
   }
 };
 
-const App: React.FC = () => {
-  return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
-  );
-};
+const App: React.FC = () => (
+  <AppProvider>
+    <AppContent />
+  </AppProvider>
+);
 
 export default App;

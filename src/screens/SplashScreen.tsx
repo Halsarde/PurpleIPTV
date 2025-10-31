@@ -2,15 +2,16 @@
 import React, { useEffect } from "react";
 
 export type SplashScreenProps = {
-  onComplete: () => void;
+  onComplete?: () => void; // ✅ أصبحت اختيارية
 };
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   useEffect(() => {
-    // ⏱ عرض شاشة البداية لمدة قصيرة
+    // ⏱ عرض شاشة البداية لمدة قصيرة ثم استدعاء onComplete فقط إذا كانت موجودة
     const timer = setTimeout(() => {
-      onComplete();
-    }, 1500); // 1.5 ثانية تقريبًا
+      if (onComplete) onComplete();
+    }, 1500);
+
     return () => clearTimeout(timer);
   }, [onComplete]);
 
