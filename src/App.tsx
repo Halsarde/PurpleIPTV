@@ -9,24 +9,25 @@ import SplashScreen from "./screens/SplashScreen";
 import PlayerScreen from "./screens/PlayerScreen";
 
 const AppContent: React.FC = () => {
-  const { screen, screenParams, isLoggedIn, setScreen } = useAppContext();
-  const [isLoading, setIsLoading] = useState(true);
+  const { screen, screenParams, isLoggedIn } = useAppContext();
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-  // ⏳ عرض شاشة التحميل 1.5 ثانية ثم التحقق من الجلسة
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIsLoading(false);
-      if (isLoggedIn) setScreen("home");
-      else setScreen("auth");
+      setIsCheckingSession(false);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [isLoggedIn, setScreen]);
+  }, []);
 
-  if (isLoading) {
-    return <SplashScreen />;
+  if (isCheckingSession) {
+    return <SplashScreen onComplete={() => setIsCheckingSession(false)} />;
   }
 
-  // 🧭 التنقل بين الشاشات
+  // ✅ تأكد من تسجيل الدخول قبل الذهاب لأي شاشة غير auth
+  if (!isLoggedIn && screen !== "auth") {
+    return <AuthScreen />;
+  }
+
   switch (screen) {
     case "auth":
       return <AuthScreen />;
@@ -39,9 +40,10 @@ const AppContent: React.FC = () => {
     case "player":
       return <PlayerScreen {...(screenParams || {})} />;
     default:
-      return <SplashScreen />;
+      return <SplashScreen onComplete={() => setIsCheckingSession(false)} />;
   }
 };
+
 
 const App: React.FC = () => (
   <AppProvider>

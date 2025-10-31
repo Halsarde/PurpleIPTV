@@ -69,10 +69,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  // ✅ دالة تسجيل الخروج (في نفس المستوى داخل AppProvider)
   const logout = () => {
-    setIsLoggedIn(false);
-    setPlaylist(undefined);
-    setScreen("auth");
+    try {
+      setIsLoggedIn(false);
+      setPlaylist(undefined);
+      setScreen("auth");
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
   };
 
   return (
