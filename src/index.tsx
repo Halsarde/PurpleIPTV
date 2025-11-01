@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
+import { initTVNavigation } from './services/tvNavigation';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -17,3 +18,6 @@ root.render(
 
 // Register the service worker
 serviceWorkerRegistration.register();
+
+// Initialize D-Pad navigation (Android/Google TV)
+initTVNavigation();
