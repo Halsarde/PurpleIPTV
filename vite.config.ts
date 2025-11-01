@@ -5,33 +5,34 @@ import viteCompression from "vite-plugin-compression";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  // ⚠️ غيّرناها من "./" إلى "/" حتى لا يفشل تحميل الـ bundle في Netlify
+  // ✅ Netlify يحتاج base مطلق وليس نسبي
   base: "/",
 
-publicDir: "public",
+  publicDir: "public",
 
   plugins: [
     react(),
 
-    // ✅ ضغط الملفات النهائية لتسريع التحميل (Gzip + Brotli)
+    // ✅ ضغط الملفات لتسريع التحميل
     viteCompression({
       algorithm: "brotliCompress",
       ext: ".br",
       threshold: 10240,
     }),
 
-    // ✅ إعداد الـ PWA (اختياري، لكنه مضبوط لتجنب مشاكل الكاش القديمة)
+    // ✅ إعداد PWA الصحيح مع مسار icons/
     VitePWA({
-      registerType: "prompt", // منع autoUpdate لأنه يسبب تعليق بالسبلاش عند وجود cache قديم
+      registerType: "prompt", // يمنع تعليق السبلاش عند وجود كاش قديم
       includeAssets: [
-        "favicon.svg",
-        "favicon.ico",
-        "robots.txt",
-        "apple-touch-icon.png",
+        "icons/favicon.ico",
+        "icons/logo.png",
+        "icons/pwa-192x192.png",
+        "icons/pwa-maskable-512x512.png",
       ],
       manifest: {
         name: "Purple IPTV",
         short_name: "PurpleTV",
+        description: "أفضل تطبيق لمشاهدة القنوات والبث المباشر بجودة عالية.",
         theme_color: "#0D0D12",
         background_color: "#0D0D12",
         display: "standalone",
@@ -39,16 +40,23 @@ publicDir: "public",
         start_url: "/index.html",
         icons: [
           {
-            src: "pwa-192x192.png",
+            src: "icons/pwa-192x192.png",
             sizes: "192x192",
             type: "image/png",
           },
           {
-            src: "pwa-512x512.png",
+            src: "icons/pwa-maskable-512x512.png",
             sizes: "512x512",
             type: "image/png",
+            purpose: "maskable any",
           },
         ],
+      },
+      workbox: {
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        globPatterns: ["**/*.{js,css,html,png,svg,ico,json}"],
       },
     }),
   ],
@@ -60,7 +68,7 @@ publicDir: "public",
       output: {
         manualChunks: {
           react: ["react", "react-dom"],
-          vendor: ["axios", "dayjs"], // ✅ فصل المكتبات العامة لتحسين التحميل
+          vendor: ["axios", "dayjs"], // ✅ فصل المكتبات الثقيلة
           services: [
             "./src/services/xtreamService",
             "./src/services/cacheService",
@@ -76,7 +84,6 @@ publicDir: "public",
     legalComments: "none",
   },
 
-  // ✅ تحسينات dev server فقط (اختياري)
   server: {
     port: 5173,
     open: true,

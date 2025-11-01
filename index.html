@@ -1,53 +1,83 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Purple TV</title>
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="dns-prefetch" href="https://your-stream-domain.com">
-<link rel="preload" href="/src/assets/logo.png" as="image">
-<link rel="preload" href="/src/main.tsx" as="script">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0D0D12" />
+  <title>Purple IPTV</title>
 
-    <style>
-        html {
-            scroll-behavior: smooth;
-        }
-        body {
-            <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(r => r.forEach(reg => reg.unregister()));
-  }
-</script>
+  <!-- خطوط -->
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
 
-            font-family: 'Inter', sans-serif;
-            background-color: #0D0D12; /* Match the app's dark background */
-            color: #FFFFFF;
-        }
-        #root {
-            min-height: 100vh;
-        }
-    </style>
-    <script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "hls.js": "https://aistudiocdn.com/hls.js@^1.6.13",
-    "vite": "https://aistudiocdn.com/vite@^7.1.12",
-    "@capacitor/cli": "https://aistudiocdn.com/@capacitor/cli@^7.4.4",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
+  <!-- تحسين التحميل -->
+  <link rel="dns-prefetch" href="https://your-stream-domain.com" />
+  <link rel="preload" href="/logo.png" as="image" />
+  <link rel="preload" href="/src/main.tsx" as="script" />
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- الأسلوب العام -->
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0D0D12;
+      color: #ffffff;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    #root {
+      min-height: 100vh;
+    }
+  </style>
+
+  <!-- Manifest و PWA -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/favicon.ico" />
 </head>
+<script>
+  // ✅ تنظيف الـ Service Workers القديمة والكاش تلقائيًا عند كل تحديث
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) {
+        await reg.unregister();
+      }
+      if (caches) {
+        const cacheNames = await caches.keys();
+        for (const name of cacheNames) {
+          await caches.delete(name);
+        }
+      }
+      // إعادة تحميل الصفحة بعد تنظيف الكاش لتفادي التجمّد
+      setTimeout(() => {
+        window.location.reload(true);
+      }, 500);
+    });
+  }
+</script>
+
 <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+  <div id="root"></div>
+
+  <!-- ✅ تحميل التطبيق -->
+  <script type="module" src="/src/index.tsx"></script>
+
+  <!-- ✅ تسجيل Service Worker (بشكل نظيف وسليم) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .catch((err) => console.warn('SW registration failed:', err));
+      });
+    }
+  </script>
 </body>
 </html>
