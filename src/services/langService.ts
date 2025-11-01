@@ -28,6 +28,7 @@ const messages: Translations = {
 };
 
 let currentLang: Lang = "ar";
+const listeners: Array<(lang: Lang) => void> = [];
 
 export const langService = {
   get currentLang() {
@@ -37,16 +38,33 @@ export const langService = {
   setLang(lang: Lang) {
     currentLang = lang;
     localStorage.setItem("purple_lang", lang);
+    try { this.applyDom(lang); } catch {}
+    try { listeners.forEach((fn) => fn(lang)); } catch {}
   },
 
   load() {
     const stored = localStorage.getItem("purple_lang") as Lang | null;
     if (stored === "en" || stored === "ar") currentLang = stored;
+    try { this.applyDom(currentLang); } catch {}
   },
 
   t(key: keyof typeof messages): string {
     const msg = messages[key];
     if (!msg) return key;
     return msg[currentLang] || key;
+  },
+  applyDom(lang: Lang) {
+    try {
+      const html = document.documentElement;
+      html.lang = lang;
+      html.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    } catch {}
+  },
+  subscribe(cb: (lang: Lang) => void) {
+    listeners.push(cb);
+    return () => {
+      const i = listeners.indexOf(cb);
+      if (i >= 0) listeners.splice(i, 1);
+    };
   },
 };

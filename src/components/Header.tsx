@@ -2,6 +2,7 @@
 import React from "react";
 import { Category } from "../types";
 import { SearchBar } from "./SearchBar";
+import { langService } from "../services/langService";
 
 interface HeaderProps {
   categories: Category[];
@@ -25,7 +26,7 @@ export const Header: React.FC<HeaderProps> = React.memo(
                 onChange={(e) => onCategoryChange(e.target.value)}
                 className="w-full md:w-64 p-2 bg-[#1A1A24] border border-gray-600 rounded-lg focus:ring-purple-500 focus:border-purple-500 outline-none transition"
               >
-                <option value="all">All Categories</option>
+                <option value="all">{langService.t('allCategories' as any) || 'All Categories'}</option>
                 {categories.map((cat) => (
                   <option key={cat.category_id} value={cat.category_id}>
                     {cat.category_name}
@@ -37,7 +38,7 @@ export const Header: React.FC<HeaderProps> = React.memo(
 
           {/* ✅ شريط البحث */}
           <div className="w-full md:w-auto md:flex-grow md:max-w-md">
-            <SearchBar placeholder="Search for content..." onSearch={onSearch} />
+            <SearchBar placeholder={langService.t('searchPlaceholder' as any) || 'Search for content...'} onSearch={onSearch} />
           </div>
         </div>
       </header>

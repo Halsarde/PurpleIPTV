@@ -1,5 +1,6 @@
 // src/screens/SplashScreen.tsx
 import React, { useEffect } from "react";
+import { langService } from "../services/langService";
 
 type SplashScreenProps = {
   onComplete?: () => void;
@@ -17,7 +18,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     <div className="flex flex-col items-center justify-center h-screen bg-[#0D0D12] text-white select-none">
       {/* شعار التطبيق */}
       <img
-        src="/logo.png"
+        src="/icons/logo.png"
         alt="Logo"
         className="w-32 h-32 mb-4 animate-pulse"
         loading="eager"
@@ -25,7 +26,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
       <h1 className="text-xl font-bold text-purple-400 tracking-wide">
         Purple IPTV
       </h1>
-      <p className="text-gray-400 mt-2 text-sm">Loading your experience...</p>
+      <p className="text-gray-400 mt-2 text-sm">{langService.t('loading' as any) || 'Loading...'}</p>
     </div>
   );
 };

@@ -9,7 +9,7 @@ import { Header } from "../components/Header";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { cacheService } from "../services/cacheService";
 
-type ContentType = "live" | "movie" | "series" | "favorites" | "recents";
+type ContentType = "live" | "movie" | "series" | "favorites" | "recents" | "sport";
 
 const HomeScreen: React.FC = () => {
   const { playlist, isLoggedIn, setScreen, favorites, recentlyWatched, logout } = useAppContext();
@@ -36,6 +36,7 @@ const HomeScreen: React.FC = () => {
       if (playlist.loginType === "m3u") {
         const typeMap: Record<ContentType, "live" | "movie" | "series" | undefined> = {
           live: "live",
+          sport: "live",
           movie: "movie",
           series: "series",
           favorites: undefined,
@@ -69,7 +70,7 @@ const HomeScreen: React.FC = () => {
       }
 
       let fetched: Category[] = [];
-      if (type === "live") fetched = await xtreamService.getLiveCategories(playlist as any);
+      if (type === "live" || type === 'sport') fetched = await xtreamService.getLiveCategories(playlist as any);
       else if (type === "movie") fetched = await xtreamService.getVodCategories(playlist as any);
       else if (type === "series") fetched = await xtreamService.getSeriesCategories(playlist as any);
 
@@ -89,6 +90,7 @@ const HomeScreen: React.FC = () => {
       if (playlist.loginType === "m3u") {
         const typeMap: Record<ContentType, "live" | "movie" | "series" | undefined> = {
           live: "live",
+          sport: "live",
           movie: "movie",
           series: "series",
           favorites: undefined,
@@ -104,6 +106,10 @@ const HomeScreen: React.FC = () => {
         let list = (playlist.streams || []).filter((s) => s.stream_type === wanted);
         if (categoryId !== "all") {
           list = list.filter((s) => s.category_id === categoryId);
+        }
+        if (type === 'sport') {
+          const cname = (id?: string) => (playlist.categories || []).find(c=> c.category_id === (id || ''))?.category_name?.toLowerCase() || '';
+          list = list.filter((s)=> (s.name || '').toLowerCase().includes('sport') || cname(s.category_id).includes('sport'));
         }
 
         setStreams(list as Stream[]);
@@ -123,10 +129,14 @@ const HomeScreen: React.FC = () => {
       let fetched: Stream[] = [];
       const catId = categoryId === "all" ? "" : categoryId;
 
-      if (type === "live") fetched = await xtreamService.getLiveStreams(playlist as any, catId);
+      if (type === "live" || type === 'sport') fetched = await xtreamService.getLiveStreams(playlist as any, catId);
       else if (type === "movie") fetched = await xtreamService.getVodStreams(playlist as any, catId);
       else if (type === "series") fetched = await xtreamService.getSeriesStreams(playlist as any, catId);
 
+      if (type === 'sport') {
+        const cname = (id?: string) => categories.find(c=> c.category_id === (id || ''))?.category_name?.toLowerCase() || '';
+        fetched = fetched.filter((s)=> (s.name || '').toLowerCase().includes('sport') || cname(s.category_id).includes('sport'));
+      }
       setStreams(fetched);
       cacheService.set(cacheKey, fetched);
       setIsLoading(false);
@@ -197,9 +207,15 @@ const HomeScreen: React.FC = () => {
       <main className="flex-1 p-4 sm:p-6 lg:p-8 ml-16 sm:ml-64">
         {/* ===== الشريط العلوي ===== */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold tracking-wide">Purple IPTV</h1>
+          <div className="flex items-center gap-2">
+            <img src="/icons/logo.png" alt="Purple IPTV" className="h-7 w-7 rounded" onError={(e:any)=>{e.currentTarget.style.display='none'}} />
+            <h1 className="text-xl font-bold tracking-wide">Purple IPTV</h1>
+          </div>
 
           <div className="flex items-center gap-3">
+            {/* Language switch */}
+            <button onClick={() => { try { const { langService } = require('../services/langService'); langService.setLang('ar'); } catch {} }} className="px-2 py-1 text-xs bg-white/10 rounded">AR</button>
+            <button onClick={() => { try { const { langService } = require('../services/langService'); langService.setLang('en'); } catch {} }} className="px-2 py-1 text-xs bg-white/10 rounded">EN</button>
             <button
               onClick={() => setScreen("settings")}
               className="text-gray-300 hover:text-white bg-[#1F1F2E] px-3 py-2 rounded-lg text-sm transition"

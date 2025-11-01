@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAppContext } from "../context/AppContext";
 import { parseM3uContent } from "../services/m3uParser";
-import { authenticateXtream } from "../services/xtreamService";
+import { authenticateXtream, getLiveCategories, getLiveStreams } from "../services/xtreamService";
 import { LoadingSpinner } from "../components/LoadingSpinner";
-import { Playlist, XtreamUserInfo, ServerInfo, Stream, Category } from "../types";
+import { Playlist } from "../types";
+import { cacheService } from "../services/cacheService";
 
 type AuthMode = "xtream" | "m3u-url" | "m3u-file" | "code";
 
@@ -47,13 +48,23 @@ const AuthScreen: React.FC = () => {
           const xtreamData = await authenticateXtream(xtreamServer, xtreamUser, xtreamPass);
           if (!xtreamData) throw new Error("Xtream authentication failed.");
 
-          // ✅ هنا نأخذ البيانات الصحيحة
+          // ✅ استخدم البيانات كما أعادتها خدمة Xtream بدون إتلاف معلومات الخادم
           playlistData = {
-  ...xtreamData.playlist, // يحتوي مسبقًا على loginType
-  user_info: xtreamData.userInfo, // من xtreamService
-  server_info: { url: xtreamServer } as ServerInfo,
-};
-
+            ...xtreamData.playlist,
+            user_info: xtreamData.userInfo,
+          };
+          // Warm critical caches (categories + default live streams) without blocking navigation
+          // This makes HomeScreen load instantly after the first successful login.
+          setTimeout(() => {
+            try {
+              const p = playlistData as Playlist;
+              const userKey = p.user_info?.username || "";
+              Promise.all([
+                getLiveCategories(p).then((cats) => cacheService.set(`${userKey}-live-categories`, cats)),
+                getLiveStreams(p, "").then((streams) => cacheService.set(`${userKey}-live-streams-all`, streams)),
+              ]).catch(() => {});
+            } catch {}
+          }, 0);
         }
 
         else if (mode === "m3u-url") {
@@ -166,14 +177,20 @@ const AuthScreen: React.FC = () => {
     <div
       className={`min-h-screen flex items-center justify-center ${
         isTV ? "bg-[#0B0B12]" : "bg-gradient-to-br from-[#0D0D12] to-[#1a0e2a]"
-      } p-4`}
+      } p-4 relative`}
     >
+      {/* Language switch (pre-login) */}
+      <div className="absolute top-4 right-4 flex gap-2">
+        <button onClick={() => { try { const { langService } = require('../services/langService'); langService.setLang('ar'); } catch {} }} className="px-2 py-1 text-xs bg-white/10 rounded">AR</button>
+        <button onClick={() => { try { const { langService } = require('../services/langService'); langService.setLang('en'); } catch {} }} className="px-2 py-1 text-xs bg-white/10 rounded">EN</button>
+      </div>
       <div
         className={`${
           isTV ? "w-[70%]" : "w-full max-w-md"
         } bg-[#F9F9FB] dark:bg-[#1A1A24] rounded-2xl shadow-xl p-8 space-y-6`}
       >
-        <div className="text-center">
+        <div className="text-center flex flex-col items-center gap-2">
+          <img src="/icons/logo.png" alt="Purple IPTV" className="h-12 w-12" onError={(e:any)=>{e.currentTarget.style.display='none'}} />
           <h1 className="text-3xl font-bold text-[#121212] dark:text-white mb-2">Purple TV</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">Login to start streaming</p>
         </div>

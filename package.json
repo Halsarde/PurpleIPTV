@@ -13,9 +13,11 @@
     "eject": "echo \"Eject not required in Vite projects\" && exit 0"
   },
   "dependencies": {
+    "@vercel/speed-insights": "^1.2.0",
     "axios": "^1.13.1",
     "dayjs": "^1.11.19",
     "hls.js": "^1.6.14",
+    "video.js": "^8.13.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "shaka-player": "^4.16.7",

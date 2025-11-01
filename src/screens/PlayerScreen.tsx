@@ -1,15 +1,40 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAppContext } from "../context/AppContext";
-import { Stream } from "../types";
-import shaka from "shaka-player/dist/shaka-player.ui";
-import { settingsService } from "../services/settingsService"; // ✅ أضفنا استيراد إعدادات المستخدم
+import { Episode, Playlist, Stream } from "../types";
+import * as xtreamService from "../services/xtreamService";
+import ProVideoPlayer from "../components/ProVideoPlayer";
 
 type Subtitle = { label: string; src: string; lang?: string };
-type QualityTrack = { label: string; height: number; id: number };
 
-const getStreamUrl = (stream: Stream | undefined): string | null => {
+const computeStreamUrl = (
+  playlist: Partial<Playlist> | undefined,
+  stream: Stream | undefined,
+  episode?: Episode
+): string | null => {
+  if (!stream) return null;
   const anyStream = stream as any;
+  if (playlist?.loginType === "xtream" && playlist?.server_info && playlist?.user_info) {
+    try {
+      if (episode) {
+        const ext = episode.container_extension || "mp4";
+        return xtreamService.getSeriesStreamUrl(
+          playlist as Playlist,
+          Number(episode.stream_id || episode.id),
+          ext
+        );
+      }
+      if (stream.stream_type === "series") return null;
+      if (stream.stream_type === "live") return xtreamService.getLiveStreamUrl(playlist as Playlist, stream.stream_id, "m3u8");
+      if (stream.stream_type === "movie") {
+        const ext = anyStream?.container_extension || "mp4";
+        return xtreamService.getVodStreamUrl(playlist as Playlist, stream.stream_id, ext);
+      }
+    } catch (err) {
+      console.error("Failed to build Xtream stream URL", err);
+    }
+  }
   return (
+    episode?.direct_source ||
     anyStream?.url ||
     anyStream?.stream_url ||
     anyStream?.hls ||
@@ -20,211 +45,133 @@ const getStreamUrl = (stream: Stream | undefined): string | null => {
 
 const getSubtitles = (stream: Stream | undefined): Subtitle[] => {
   const anyStream = stream as any;
-  if (Array.isArray(anyStream?.subtitles)) {
-    return anyStream.subtitles as Subtitle[];
-  }
+  if (Array.isArray(anyStream?.subtitles)) return anyStream.subtitles as Subtitle[];
   return [];
 };
 
 const PlayerScreen: React.FC = () => {
-  const { screenParams, setScreen } = useAppContext() as any;
+  const { screenParams, setScreen, playlist, addRecentlyWatched } = useAppContext() as any;
   const stream: Stream | undefined = screenParams?.stream;
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const episode: Episode | undefined = screenParams?.episode;
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const playerRef = useRef<any | null>(null);
 
   const [isReady, setIsReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const [pipSupported, setPipSupported] = useState(false);
-  const [currentLang, setCurrentLang] = useState<string>("");
-  const [qualityList, setQualityList] = useState<QualityTrack[]>([]);
-  const [currentQuality, setCurrentQuality] = useState<string>("Auto");
+  const [reloadKey, setReloadKey] = useState<number>(0);
+  const [showDebug, setShowDebug] = useState<boolean>(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [retryOnce, setRetryOnce] = useState<boolean>(false);
+  const [preferredQuality, setPreferredQuality] = useState<string>('auto');
+  const [qualityList, setQualityList] = useState<Array<{label:string;height:number}>>([{label:'Auto',height:0}]);
 
-  const url = getStreamUrl(stream);
+  const log = (msg: string) => {
+    const stamp = new Date().toISOString().split('T')[1].replace('Z','');
+    setDebugLogs((prev) => [...prev.slice(-99), `[${stamp}] ${msg}`]);
+  };
+
+  const url = useMemo(() => computeStreamUrl(playlist, stream, episode), [playlist, stream, episode]);
   const subtitles = getSubtitles(stream);
-
-  useEffect(() => {
-    const v = videoRef.current as any;
-    setPipSupported(!!(document as any).pictureInPictureEnabled && !!v?.requestPictureInPicture);
-  }, []);
-
-  useEffect(() => {
-    if (!videoRef.current || !containerRef.current || !url) {
-      setError("Missing stream URL or video element.");
-      return;
-    }
-
-    // ✅ قراءة الإعدادات المفضلة للمستخدم
-    const settings = settingsService.get();
-    const preferredQuality = settings.quality || "auto";
-    const preferredSubtitle = settings.subtitleLang || "off";
-
-    shaka.polyfill.installAll();
-
-    if (!shaka.Player.isBrowserSupported()) {
-      setError("This browser/TV does not support Shaka Player.");
-      return;
-    }
-
-    const video = videoRef.current;
-    const player = new shaka.Player(video);
-    playerRef.current = player;
-
-    player.configure({
-      streaming: { rebufferingGoal: 2, bufferingGoal: 10, lowLatencyMode: true },
-      manifest: { retryParameters: { maxAttempts: 3 } },
-    });
-
-    const onError = (e: any) => setError("Playback error: " + (e?.detail?.message || e?.detail?.code || ""));
-    player.addEventListener("error", onError);
-    player.addEventListener("buffering", (e: any) => setIsBuffering(e.buffering));
-
-    player
-      .load(url)
-      .then(async () => {
-        setIsReady(true);
-        setIsBuffering(false);
-
-        // جلب الجودات المتاحة
-        const tracks = player.getVariantTracks();
-        const formatted = tracks
-          .filter((t: any) => t.height)
-          .map((t: any) => ({
-            label: `${t.height}p`,
-            height: t.height,
-            id: t.id,
-          }))
-          .sort((a: any, b: any) => b.height - a.height);
-
-        setQualityList([{ label: "Auto", height: 0, id: -1 }, ...formatted]);
-
-        // إضافة الترجمات
-        for (const t of subtitles) {
-          if (!t?.src) continue;
-          await player.addTextTrackAsync(
-            t.src,
-            t.lang || "en",
-            "subtitle",
-            "text/vtt",
-            undefined,
-            t.label || t.lang || "Subtitle"
-          );
-        }
-
-        // ✅ تطبيق الترجمة من الإعدادات
-        if (preferredSubtitle === "off") {
-          player.setTextTrackVisibility(false);
-        } else {
-          player.setTextTrackVisibility(true);
-          player.selectTextLanguage(preferredSubtitle);
-          setCurrentLang(preferredSubtitle);
-        }
-
-        // ✅ تطبيق الجودة من الإعدادات
-        if (preferredQuality !== "auto") {
-          player.configure({ abr: { enabled: false } });
-          const track = player
-            .getVariantTracks()
-            .find((t: any) => `${t.height}p` === preferredQuality);
-          if (track) player.selectVariantTrack(track, true);
-          setCurrentQuality(preferredQuality);
-        } else {
-          player.configure({ abr: { enabled: true } });
-          setCurrentQuality("Auto");
-        }
-      })
-      .catch((err: any) => {
-        setError("Failed to load stream: " + (err?.message || ""));
-        setIsBuffering(false);
-      });
-
-    return () => {
-      player.destroy().catch(() => {});
-      playerRef.current = null;
-    };
+  const mime = useMemo(() => {
+    if (!url) return undefined;
+    if (/\.m3u8(\?|$)/i.test(url)) return "application/x-mpegURL";
+    if (/\.mpd(\?|$)/i.test(url)) return "application/dash+xml";
+    if (/\.(mp4|m4v)(\?|$)/i.test(url)) return "video/mp4";
+    return undefined;
   }, [url]);
 
-  // باقي الكود بدون تغيير ...
+  useEffect(() => {
+    try {
+      const { settingsService } = require('../services/settingsService');
+      const s = settingsService.get();
+      setPreferredQuality(s.quality);
+    } catch {}
+  }, []);
 
-  const togglePlay = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.paused ? v.play() : v.pause();
-  };
+  useEffect(() => { setRetryOnce(false); }, [url]);
 
-  const toggleMute = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    setIsMuted(v.muted);
-  };
-
-  const toggleFullscreen = () => {
-    const el = containerRef.current as any;
-    if (!el) return;
-    if (document.fullscreenElement) document.exitFullscreen();
-    else el.requestFullscreen?.();
-  };
-
-  const togglePiP = async () => {
-    if (!pipSupported) return;
-    const v = videoRef.current as any;
-    if ((document as any).pictureInPictureElement) await (document as any).exitPictureInPicture();
-    else await v.requestPictureInPicture();
-  };
-
-  const changeSubtitle = (lang: string) => {
-    setCurrentLang(lang);
-    const player = playerRef.current;
-    if (!player) return;
-    if (lang === "off") player.setTextTrackVisibility(false);
-    else {
-      player.setTextTrackVisibility(true);
-      player.selectTextLanguage(lang);
-    }
-  };
-
-  const changeQuality = (label: string) => {
-    const player = playerRef.current;
-    if (!player) return;
-    setCurrentQuality(label);
-
-    if (label === "Auto") {
-      player.configure({ abr: { enabled: true } });
-    } else {
-      player.configure({ abr: { enabled: false } });
-      const selected = qualityList.find((q) => q.label === label);
-      if (selected) {
-        player.selectVariantTrack(
-          player.getVariantTracks().find((t: any) => t.height === selected.height),
-          true
-        );
+  // auto-retry once if loading too long
+  useEffect(() => {
+    if (!url) return;
+    if (isReady) return;
+    const t = setTimeout(() => {
+      if (!isReady && !retryOnce) {
+        setRetryOnce(true);
+        setReloadKey((k) => k + 1);
       }
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [url, reloadKey, isReady, retryOnce]);
+
+  // Mixed-content guard
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (!url) {
+      setError("Missing stream URL or unsupported stream type.");
+      setIsBuffering(false);
+      log('Error: Missing URL or unsupported stream type');
+      return;
     }
-  };
+    try {
+      const isMixed = typeof window !== 'undefined' && window.location.protocol === 'https:' && /^http:\/\//i.test(url);
+      if (isMixed) {
+        setError('Stream uses http on an https site (mixed content). Use an https server URL or open the app over http.');
+        log('Blocked mixed content: ' + url);
+        setIsBuffering(false);
+        return;
+      }
+    } catch {}
+    setError(null);
+    setIsReady(false);
+    setIsBuffering(true);
+  }, [url]);
 
   const title = (stream as any)?.name || (stream as any)?.title || "Now Playing";
+  const handleBack = () => setScreen(stream?.stream_type !== 'live' ? 'details' : 'home', stream?.stream_type !== 'live' ? { stream } : undefined);
 
   return (
     <div ref={containerRef} className="relative w-full h-screen bg-black text-white">
-      <video
-        ref={videoRef}
-        className="w-full h-full object-contain"
-        autoPlay
-        playsInline
-        controls={false}
-        muted={isMuted}
-      />
+      {url && (
+        <ProVideoPlayer
+          key={reloadKey}
+          src={url}
+          type={mime}
+          subtitles={subtitles}
+          autoplay
+          controls
+          muted={false}
+          preferredQuality={preferredQuality as any}
+          onQualitiesChange={(q)=> setQualityList(q)}
+          onReady={() => { setError(null); setIsReady(true); setIsBuffering(false); if (stream) addRecentlyWatched?.(stream); }}
+          onError={(m) => { setError(m || 'Failed to load stream'); setIsBuffering(false); }}
+        />
+      )}
 
-      <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent">
+      <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-20">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <div className="flex items-center gap-2">
+            <button onClick={handleBack} className="bg-black/50 rounded-full p-2 hover:bg-black/75">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            </button>
+            <h2 className="text-lg font-semibold">{title}</h2>
+          </div>
           <span className="text-sm text-gray-300">
             {isBuffering ? "Buffering…" : isReady ? "Live" : "Loading…"}
           </span>
         </div>
+      </div>
+
+      {/* Dynamic quality selector */}
+      <div className="absolute top-4 right-4 z-30">
+        <select
+          value={preferredQuality}
+          onChange={(e)=> setPreferredQuality(e.target.value)}
+          className="bg-black/50 text-white text-xs px-2 py-1 rounded border border-white/20"
+        >
+          {qualityList.map((q)=> (
+            <option key={q.label} value={q.label.toLowerCase()}>{q.label}</option>
+          ))}
+        </select>
       </div>
 
       {error && (
@@ -233,75 +180,42 @@ const PlayerScreen: React.FC = () => {
             <p className="font-semibold mb-2">Error</p>
             <p>{error}</p>
             <button
-              onClick={() => setScreen("HOME")}
-              className="mt-4 px-4 py-2 bg-red-600/40 hover:bg-red-600/60 rounded-md"
+              onClick={() => setError(null)}
+              className="mt-4 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-md"
             >
-              Back
+              Dismiss
+            </button>
+            <button
+              onClick={() => { setError(null); setIsBuffering(true); setReloadKey((k) => k + 1); }}
+              className="mt-4 ml-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-md"
+            >
+              Retry
             </button>
           </div>
         </div>
       )}
 
-      {/* الأدوات السفلية */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex flex-wrap items-center gap-3">
-        <button onClick={togglePlay} className="bg-white/10 px-3 py-2 rounded-md">
-          ⏯ Play/Pause
+      {/* Debug panel */}
+      <div className="absolute bottom-4 left-4 space-y-2">
+        <button onClick={() => setShowDebug((v) => !v)} className="px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded-md">
+          {showDebug ? 'Hide Logs' : 'Show Logs'}
         </button>
-        <button onClick={toggleMute} className="bg-white/10 px-3 py-2 rounded-md">
-          {isMuted ? "🔇 Unmute" : "🔊 Mute"}
-        </button>
-        <button onClick={toggleFullscreen} className="bg-white/10 px-3 py-2 rounded-md">
-          ⛶ Fullscreen
-        </button>
-        <button
-          onClick={togglePiP}
-          disabled={!pipSupported}
-          className={`px-3 py-2 rounded-md ${
-            pipSupported ? "bg-white/10" : "bg-white/5 opacity-50"
-          }`}
-        >
-          🗔 PiP
-        </button>
-
-        {/* الترجمة */}
-        {subtitles.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-gray-400">Subtitle:</span>
-            <select
-              value={currentLang}
-              onChange={(e) => changeSubtitle(e.target.value)}
-              className="bg-white/10 px-2 py-1 rounded-md"
-            >
-              <option value="off">Off</option>
-              {subtitles.map((s, i) => (
-                <option key={i} value={s.lang || `lang-${i}`}>
-                  {s.label || s.lang}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* الجودات */}
-        {qualityList.length > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">Quality:</span>
-            <select
-              value={currentQuality}
-              onChange={(e) => changeQuality(e.target.value)}
-              className="bg-white/10 px-2 py-1 rounded-md"
-            >
-              {qualityList.map((q, i) => (
-                <option key={i} value={q.label}>
-                  {q.label}
-                </option>
-              ))}
-            </select>
+        {showDebug && (
+          <div className="max-w-md max-h-40 overflow-auto text-xs bg-black/70 border border-white/10 rounded-md p-2">
+            {debugLogs.length === 0 ? (
+              <div className="text-gray-400">No logs yet…</div>
+            ) : (
+              debugLogs.slice(-20).map((l, i) => (<div key={i} className="whitespace-pre-wrap">{l}</div>))
+            )}
           </div>
         )}
       </div>
+
     </div>
   );
 };
 
 export default PlayerScreen;
+
+
+

@@ -1,5 +1,5 @@
 // src/context/AppContext.tsx
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import type { Playlist, Stream } from "../types";
 
 export type Screen = "splash" | "auth" | "home" | "player" | "details" | "settings";
@@ -76,6 +76,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setPlaylist(playlistData);
       setIsLoggedIn(true);
       setScreen("home");
+      try {
+        localStorage.setItem("purple_auth", JSON.stringify({ isLoggedIn: true, playlist: playlistData }));
+      } catch {}
     } catch (err) {
       console.error("Login error:", err);
     }
@@ -87,10 +90,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoggedIn(false);
       setPlaylist(undefined);
       setScreen("auth");
+      try { localStorage.removeItem("purple_auth"); } catch {}
     } catch (err) {
       console.error("Logout error:", err);
     }
   };
+
+  // Restore session on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("purple_auth");
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data?.isLoggedIn && data?.playlist) {
+          setPlaylist(data.playlist);
+          setIsLoggedIn(true);
+          // stay on splash; App decides where to go next
+        }
+      }
+    } catch {}
+  }, []);
 
   return (
     <AppContext.Provider

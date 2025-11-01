@@ -57,6 +57,36 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,png,svg,ico,json}"],
+        navigateFallback: "/index.html",
+        runtimeCaching: [
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|gif|webp|svg)$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "images",
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          {
+            urlPattern: /\.(?:json|webmanifest)$/i,
+            handler: "StaleWhileRevalidate",
+            options: { cacheName: "meta" },
+          },
+          {
+            urlPattern: /(player_api\.php|panel_api\.php|\/api\/)/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "api",
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 5 },
+            },
+          },
+          {
+            urlPattern: /\.(?:m3u8|mpd|ts|m4s|mp4)$/i,
+            handler: "NetworkOnly",
+            options: { cacheName: "media" },
+          },
+        ],
       },
     }),
   ],

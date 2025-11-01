@@ -13,8 +13,8 @@
 
   <!-- تحسين التحميل -->
   <link rel="dns-prefetch" href="https://your-stream-domain.com" />
-  <link rel="preload" href="/logo.png" as="image" />
-  <link rel="preload" href="/src/main.tsx" as="script" />
+  <link rel="preload" href="/icons/logo.png" as="image" />
+  <link rel="preload" href="/src/index.tsx" as="script" />
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -35,6 +35,38 @@
     #root {
       min-height: 100vh;
     }
+    /* Light theme overrides */
+    .theme-light body {
+      background-color: #f5f7fb !important;
+      color: #111111 !important;
+    }
+    .theme-light .text-white { color: #111 !important; }
+    .theme-light .text-gray-200 { color: #222 !important; }
+    .theme-light .bg-\[\#0D0D12\],
+    .theme-light .bg-\[\#1A1A24\],
+    .theme-light .bg-\[\#242430\],
+    .theme-light .bg-\[\#141422\] {
+      background-color: #ffffff !important;
+      color: #111111 !important;
+    }
+    .theme-light select, .theme-light input, .theme-light button { color: #111 !important; background-color: #fff; border: 1px solid #ddd; }
+    .theme-light .bg-white\/10 { background-color: rgba(0,0,0,0.06) !important; color:#111!important; }
+    .theme-light .bg-white\/20 { background-color: rgba(0,0,0,0.12) !important; color:#111!important; }
+    /* Keep primary buttons purple + white text in light theme */
+    .theme-light button.bg-white\/10,
+    .theme-light button.bg-white\/20,
+    .theme-light button.bg-\[\#1F1F2E\],
+    .theme-light .bg-purple-600 { background-color: #6d28d9 !important; color: #ffffff !important; border-color: #6d28d9 !important; }
+    .theme-light button.bg-white\/10:hover,
+    .theme-light button.bg-white\/20:hover { background-color: #5b21b6 !important; }
+    .theme-light .hover\:bg-white\/20:hover { background-color: rgba(0,0,0,0.15) !important; }
+    .theme-light .border { border-color: #e5e7eb !important; }
+    .theme-light .text-purple-400 { color: #6d28d9 !important; }
+    .theme-light .bg-purple-600 { background-color: #6d28d9 !important; color: #fff !important; }
+    .theme-light .text-gray-300 { color: #333 !important; }
+    .theme-light .text-gray-400 { color: #555 !important; }
+    .theme-light .from-black\/70 { --tw-gradient-from: rgba(0,0,0,0.1) !important; }
+    .theme-light .to-transparent { --tw-gradient-to: transparent !important; }
   </style>
 
   <!-- Manifest و PWA -->
@@ -43,7 +75,7 @@
 </head>
 <script>
   // ✅ تنظيف الـ Service Workers القديمة والكاش تلقائيًا عند كل تحديث
-  if ('serviceWorker' in navigator) {
+  if ('serviceWorker' in navigator && !localStorage.getItem('swResetDone')) {
     window.addEventListener('load', async () => {
       const regs = await navigator.serviceWorker.getRegistrations();
       for (const reg of regs) {
@@ -56,9 +88,8 @@
         }
       }
       // إعادة تحميل الصفحة بعد تنظيف الكاش لتفادي التجمّد
-      setTimeout(() => {
-        window.location.reload(true);
-      }, 500);
+      localStorage.setItem('swResetDone', '1');
+      // Do not force a reload; avoid interrupting playback
     });
   }
 </script>
@@ -73,6 +104,11 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
+        const isLocal = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+        if (isLocal) {
+          console.info('Skipping SW registration in development');
+          return;
+        }
         navigator.serviceWorker
           .register('/sw.js')
           .catch((err) => console.warn('SW registration failed:', err));

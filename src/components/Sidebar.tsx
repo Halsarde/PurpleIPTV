@@ -1,7 +1,8 @@
 // ✅ src/components/Sidebar.tsx
 import React from "react";
+import { langService } from "../services/langService";
 
-type ContentType = "live" | "movie" | "series" | "favorites" | "recents";
+type ContentType = "live" | "movie" | "series" | "favorites" | "recents" | "sport";
 
 type SidebarProps = {
   contentType: ContentType;
@@ -10,12 +11,14 @@ type SidebarProps = {
 
 // ✅ استخدمنا React.memo لتقليل إعادة التصيير غير الضرورية
 export const Sidebar: React.FC<SidebarProps> = React.memo(({ contentType, onContentTypeChange }) => {
+  const t = (k: string) => langService.t(k as any);
   const items: { key: ContentType; label: string }[] = [
-    { key: "live", label: "Live" },
-    { key: "movie", label: "Movies" },
-    { key: "series", label: "Series" },
-    { key: "favorites", label: "Favorites" },
-    { key: "recents", label: "Recents" },
+    { key: "live", label: t("live") },
+    { key: "sport", label: t("sport") },
+    { key: "movie", label: t("movie") },
+    { key: "series", label: t("series") },
+    { key: "favorites", label: t("favorites") },
+    { key: "recents", label: t("recents") },
   ];
 
   return (

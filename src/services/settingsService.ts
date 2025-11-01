@@ -44,3 +44,19 @@ export const settingsService = {
     localStorage.removeItem(STORAGE_KEY);
   },
 };
+
+export function applyUiSettings(s: Settings) {
+  try {
+    const root = document.documentElement;
+    // Theme
+    root.classList.remove('theme-light','theme-dark');
+    let theme = s.theme;
+    if (theme === 'system') {
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    root.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+    // Font size
+    const sizeMap: any = { small: '14px', medium: '16px', large: '18px' };
+    root.style.fontSize = sizeMap[s.fontSize] || '16px';
+  } catch {}
+}

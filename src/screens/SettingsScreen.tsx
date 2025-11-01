@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAppContext } from "../context/AppContext";
-import { settingsService, Settings } from "../services/settingsService";
+import { settingsService, Settings, applyUiSettings } from "../services/settingsService";
 import { langService } from "../services/langService";
 
 const SettingsScreen: React.FC = () => {
@@ -17,6 +17,7 @@ const SettingsScreen: React.FC = () => {
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     settingsService.update({ [key]: value });
+    try { applyUiSettings({ ...newSettings } as Settings); } catch {}
   };
 
   // 🧹 مسح الكاش
@@ -60,7 +61,7 @@ const SettingsScreen: React.FC = () => {
         >
           ← {langService.t("back")}
         </button>
-        <h1 className="text-2xl font-bold text-center">⚙️ {langService.t("settings")}</h1>
+        <h1 className="text-2xl font-bold text-center">{langService.t("settings" as any) || 'Settings'}</h1>
         <div className="w-10" />
       </div>
 
@@ -112,3 +113,5 @@ const SettingsScreen: React.FC = () => {
 };
 
 export default SettingsScreen;
+
+

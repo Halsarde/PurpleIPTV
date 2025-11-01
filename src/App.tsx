@@ -1,5 +1,6 @@
 // src/App.tsx
 import React, { useEffect, useState } from "react";
+import { langService } from "./services/langService";
 import { AppProvider, useAppContext } from "./context/AppContext";
 import SplashScreen from "./screens/SplashScreen";
 import AuthScreen from "./screens/AuthScreen";
@@ -12,6 +13,7 @@ import DetailsScreen from "./screens/DetailsScreen";
 const AppContent: React.FC = () => {
   const { screen, isLoggedIn, setScreen, screenParams } = useAppContext();
   const [isLoading, setIsLoading] = useState(true);
+  const [, setLangTick] = useState(0);
 
   // ⏳ إظهار SplashScreen لفترة قصيرة فقط (1.5 ثانية)
   useEffect(() => {
@@ -19,15 +21,23 @@ const AppContent: React.FC = () => {
       setIsLoading(false);
 
       // ✅ الانتقال للشاشة المناسبة بعد الـ Splash
-      if (!isLoggedIn) {
-        setScreen("auth");
-      } else {
-        setScreen("home");
+      if (screen === "splash") {
+        if (!isLoggedIn) {
+          setScreen("auth");
+        } else {
+          setScreen("home");
+        }
       }
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [isLoggedIn, setScreen]);
+  }, [isLoggedIn, setScreen, screen]);
+
+  // Re-render on language change so components using langService.t update
+  useEffect(() => {
+    const unsub = langService.subscribe(() => setLangTick((x) => x + 1));
+    return () => { try { unsub(); } catch {} };
+  }, []);
 
   // أثناء التحميل الأولي
   if (isLoading) {
@@ -59,3 +69,5 @@ export const App: React.FC = () => (
 );
 
 export default App;
+
+
