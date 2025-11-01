@@ -6,7 +6,10 @@ type SplashScreenProps = {
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   useEffect(() => {
-    const timer = setTimeout(onComplete, 1200); // بعد 1.2 ثانية ينهي التحميل
+    const timer = setTimeout(() => {
+  onComplete();
+}, 600); // أقل من ثانية
+
     return () => clearTimeout(timer);
   }, [onComplete]);
 

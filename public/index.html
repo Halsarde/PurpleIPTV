@@ -1,39 +1,50 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
+  <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#6c2bd9" />
     <title>Purple TV</title>
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-    <link rel="manifest" href="/manifest.json" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#6c2bd9">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-        html {
-            scroll-behavior: smooth;
-        }
-        <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
-  });
-}
-</script>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0D0D12; /* Match the app's dark background */
-            color: #FFFFFF;
-        }
-        #root {
-            min-height: 100vh;
-        }
+    <!-- ✅ الخط -->
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+
+    <!-- ✅ Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- ✅ PWA manifest من Vite -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #0D0D12;
+        color: #FFFFFF;
+        margin: 0;
+        padding: 0;
+      }
+      #root {
+        min-height: 100vh;
+      }
     </style>
-</head>
-<body>
+
+    <!-- ✅ تعطيل الكاش القديم -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.getRegistrations().then((regs) =>
+          regs.forEach((r) => r.unregister())
+        );
+      }
+    </script>
+  </head>
+
+  <body>
     <div id="root"></div>
-    <script type="module" src="/src/index.tsx"></script>
-</body>
+
+    <!-- ✅ Vite سيضع هنا السكريبت بعد البناء -->
+    <script type="module" src="/assets/index.js"></script>
+  </body>
 </html>

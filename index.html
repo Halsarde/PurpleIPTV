@@ -8,12 +8,21 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="dns-prefetch" href="https://your-stream-domain.com">
+<link rel="preload" href="/src/assets/logo.png" as="image">
+<link rel="preload" href="/src/main.tsx" as="script">
+<link rel="preconnect" href="https://fonts.googleapis.com">
 
     <style>
         html {
             scroll-behavior: smooth;
         }
         body {
+            <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(r => r.forEach(reg => reg.unregister()));
+  }
+</script>
+
             font-family: 'Inter', sans-serif;
             background-color: #0D0D12; /* Match the app's dark background */
             color: #FFFFFF;
