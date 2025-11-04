@@ -1,56 +1,12 @@
 {
   "name": "Purple IPTV",
-  "short_name": "PurpleTV",
-  "description": "مشاهدة القنوات، الأفلام، والمسلسلات بسهولة عبر Purple IPTV",
+  "short_name": "Purple IPTV",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0E0B14",
+  "theme_color": "#0E0B14",
   "lang": "ar",
   "dir": "rtl",
-  "start_url": "/",
-  "scope": "/",
-  "display": "standalone",
-  "orientation": "landscape",
-  "theme_color": "#0D0D12",
-  "background_color": "#0D0D12",
-  "prefer_related_applications": false,
-  "categories": ["entertainment", "media", "video", "iptv"],
-  "icons": [
-    {
-      "src": "/pwa-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/pwa-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    },
-    {
-      "src": "/pwa-maskable-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "القنوات المباشرة",
-      "short_name": "Live TV",
-      "description": "انتقل مباشرة إلى قسم القنوات",
-      "url": "/?screen=live",
-      "icons": [{ "src": "/icons/live.png", "sizes": "96x96" }]
-    },
-    {
-      "name": "الأفلام",
-      "short_name": "Movies",
-      "description": "مشاهدة الأفلام",
-      "url": "/?screen=movies",
-      "icons": [{ "src": "/icons/movie.png", "sizes": "96x96" }]
-    },
-    {
-      "name": "الإعدادات",
-      "short_name": "Settings",
-      "description": "تعديل الإعدادات والتخصيص",
-      "url": "/?screen=settings",
-      "icons": [{ "src": "/icons/settings.png", "sizes": "96x96" }]
-    }
-  ]
+  "icons": []
 }
+

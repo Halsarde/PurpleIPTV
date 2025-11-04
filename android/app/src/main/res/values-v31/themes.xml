@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.PurpleIPTV" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_logo</item>
+        <item name="android:windowSplashScreenBackground">#0E0B14</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>
+

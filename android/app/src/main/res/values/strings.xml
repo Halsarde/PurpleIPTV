@@ -1,7 +1,16 @@
-<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">Purple IPTV</string>
-    <string name="title_activity_main">Purple IPTV</string>
-    <string name="package_name">com.purple.iptv</string>
-    <string name="custom_url_scheme">com.purple.iptv</string>
+    <string name="settings">Settings</string>
+    <string name="language">Language</string>
+    <string name="theme">Theme</string>
+    <string name="dark">Dark</string>
+    <string name="light">Light</string>
+    <string name="system">System</string>
+    <string name="close">Close</string>
+    <string name="premium_tagline">Enjoy a premium viewing experience</string>
+    <string name="live">Live</string>
+    <string name="options">Options</string>
+    <string name="quality">Quality</string>
+    <string name="subtitles">Subtitles</string>
+    <string name="auto">Auto</string>
 </resources>
